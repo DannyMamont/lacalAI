@@ -1,0 +1,5 @@
+- Create HTML template for age calculation page
+- Add JavaScript logic to prompt user's birth year and calculate age
+- Implement front-end validation for user input (e.g., date format)
+- Integrate Python Django backend to handle calculations and return result
+- Test and refine the entire application for accuracy and usability
