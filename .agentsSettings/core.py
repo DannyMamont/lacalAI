@@ -96,7 +96,7 @@ def execute_tool_call(tool_call, workspace_root):
         
     return f"[Error]: Unknown tool function name '{func_name}'."
 
-def execute_command(response_text, workspace_root):
+
     """
     Парсит ответ модели. Находит блоки <WRITE_FILE> и сохраняет их на диск.
     Если есть маркер RUN:, выполняет команду в терминале.
@@ -146,4 +146,77 @@ def execute_command(response_text, workspace_root):
                 output_log.append(f"[Terminal Error]: {e}")
 
     # Возвращаем накопленный результат работы для памяти модели
+    return "\n".join(output_log) if output_log else None
+
+def execute_command(response_text, workspace_root):
+    output_log = []
+    file_written = False
+    
+    # 1. Запись файлов (<WRITE_FILE>)
+    file_blocks = re.findall(r'<WRITE_FILE\s+path=["\'](.*?)["\']>(.*?)</WRITE_FILE>', response_text, re.DOTALL)
+    for rel_path, content in file_blocks:
+        rel_path = rel_path.strip().lstrip("./\\")
+        target_path = os.path.normpath(os.path.join(workspace_root, rel_path))
+        
+        if not target_path.startswith(os.path.normpath(workspace_root)):
+            output_log.append(f"[Ошибка безопасности]: {rel_path}")
+            continue
+            
+        try:
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            with open(target_path, 'w', encoding='utf-8') as f:
+                f.write(content.strip('\n'))
+            print(f"\n[Движок -> Успех]: Файл записан: {rel_path}")
+            output_log.append(f"[Success]: File written successfully at '{rel_path}'")
+            file_written = True # Фиксируем, что работа сделана
+        except Exception as e:
+            output_log.append(f"[Error]: Failed to write file '{rel_path}': {e}")
+
+    # 2. Обработка RUN:
+    command_executed = False
+    if "RUN:" in response_text:
+        command = response_text.split("RUN:")[-1].strip().split("\n")[0].strip()
+        if any(x in command.lower() for x in ["runserver", "npm start", "yarn start", "nodemon"]):
+            return f"[System Notice]: Command '{command}' was blocked. Use tests only."
+            
+        if command:
+            print(f"\n[Движок -> Терминал]: Запуск: {command}")
+            try:
+                result = subprocess.run(command, shell=True, cwd=workspace_root, capture_output=True, text=True, timeout=15, encoding='utf-8', errors='ignore')
+                output_log.append(f"[Terminal Result]:\n{result.stdout}\n{result.stderr}")
+                command_executed = True
+            except Exception as e:
+                output_log.append(f"[Terminal Error]: {e}")
+
+    # 3. АВТО-ОБНОВЛЕНИЕ TODO.MD (Продвижение по шагам)
+    # Если кодер успешно записал файл или выполнил команду, отмечаем текущий шаг выполненным
+    if file_written or command_executed:
+        todo_path = os.path.join(workspace_root, "TODO.md")
+        if os.path.exists(todo_path):
+            try:
+                with open(todo_path, 'r', encoding='utf-8') as f:
+                    todo_content = f.read()
+                
+                # Ищем первый попавшийся невыполненный пункт: например, "- [ ] Сделать X" или "- Изменить Y"
+                # Заменяем его на выполненный "- [x] ..."
+                lines = todo_content.splitlines()
+                updated = False
+                for i, line in enumerate(lines):
+                    # Проверяем маркеры "- [ ]" или просто списки "- ", которые еще не отмечены [x]
+                    if (line.strip().startswith("- [ ]") or (line.strip().startswith("- ") and not "[x]" in line.lower())) and not updated:
+                        if "[ ]" in line:
+                            lines[i] = line.replace("[ ]", "[x]")
+                        else:
+                            lines[i] = line.replace("- ", "- [x] ")
+                        updated = True
+                        break
+                
+                if updated:
+                    with open(todo_path, 'w', encoding='utf-8') as f:
+                        f.write("\n".join(lines))
+                    print("[Движок -> TODO]: План обновлен. Текущий шаг отмечен как выполненный [x].")
+                    output_log.append("[System]: TODO.md has been automatically updated. Step marked as COMPLETED.")
+            except Exception as e:
+                print(f"[Ошибка обновления TODO]: {e}")
+
     return "\n".join(output_log) if output_log else None

@@ -5,10 +5,10 @@ import subprocess
 import requests
 
 import systemPromts as s
-import core
+import coreCopy
 import skill_analyzer
 import skill_planner
-import skill_coder
+import skill_coderCopy
 import re
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
@@ -88,7 +88,7 @@ def run_pipeline(initial_idea):
         dialog_history += f"Model Questions:\n{analysis}\nUser Answers:\n{user_answers}\n"
         current_input = f"User clarifications: {user_answers}"
 
-    structure = core.get_project_structure(WORKSPACE_ROOT, TODO_FILE)
+    structure = coreCopy.get_project_structure(WORKSPACE_ROOT, TODO_FILE)
     planner_success = skill_planner.run_planner_mode(
         OLLAMA_URL, MODEL_PLANNER, SYSTEM_PROMPT_PLANNER, dialog_history, TODO_PATH, structure, mode=detected_mode
     )
@@ -98,7 +98,7 @@ def run_pipeline(initial_idea):
     with open(TODO_PATH, 'r', encoding='utf-8') as f:
         final_todo = f.read()
         
-    skill_coder.run_coder_mode(
+    skill_coderCopy.run_coder_mode(
         OLLAMA_URL, MODEL_CODER, SYSTEM_PROMPT_CODER, final_todo, WORKSPACE_ROOT, TODO_FILE
     )
 
