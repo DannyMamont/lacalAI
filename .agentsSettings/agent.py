@@ -12,8 +12,8 @@ import skill_coder
 import re
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL_PLANNER = "llama3.2:3b"
-MODEL_CODER = "bonsai-fast:latest"
+MODEL_PLANNER = "gemma2:9b-instruct-q5_K_M"
+MODEL_CODER = "deepseek-r1:14b "
 TODO_FILE = "TODO.md"
 
 SYSTEM_PROMPT_ANALYZER = s.SYSTEM_PROMPT_ANALYZER

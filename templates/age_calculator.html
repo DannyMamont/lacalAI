@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Age Calculator</title>
+    <style>
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #age-display {
+            margin-top: 20px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .notification {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Calculate Your Age</h1>
+        <form id="ageForm" method="get">
+            <div class="form-group">
+                <label for="birthdate">Enter Your Birthdate:</label>
+                <input type="date" id="birthdate" name="birthdate" required>
+            </div>
+            <button type="submit">Calculate</button>
+        </form>
+        <div id="age-display"></div>
+        <div id="notification" class="notification"></div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#ageForm').submit(function(e) {
+                e.preventDefault();
+                
+                const birthdate = $('#birthdate').val();
+                const regex = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+                
+                if (!birthdate.match(regex)) {
+                    $('#notification').text('Please enter a valid date format (YYYY-MM-DD)').css('color', 'red');
+                    return false;
+                }
+
+                $.get('/calculate_age/', { birthdate: birthdate }, function(response) {
+                    if (response.error) {
+                        $('#notification').text(response.message).css('color', 'red');
+                    } else {
+                        $('#notification').text('').hide();
+                        $('#age-display').text(response.age);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
