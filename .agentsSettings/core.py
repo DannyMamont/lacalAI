@@ -94,3 +94,55 @@ def execute_tool_call(tool_call, workspace_root):
         return f"[Error]: File '{rel_path}' not found in workspace."
         
     return f"[Error]: Unknown tool function name '{func_name}'."
+
+def execute_command(response_text, workspace_root):
+    """
+    Парсит ответ модели. Находит блоки <WRITE_FILE> и сохраняет их на диск.
+    Если есть маркер RUN:, выполняет команду в терминале.
+    """
+    output_log = []
+    
+    # 1. Ищем блоки для записи файлов: <WRITE_FILE path="path">content</WRITE_FILE>
+    # Флаг re.DOTALL позволяет точке . матчить переносы строк
+    file_blocks = re.findall(r'<WRITE_FILE\s+path=["\'](.*?)["\']>(.*?)</WRITE_FILE>', response_text, re.DOTALL)
+    
+    for rel_path, content in file_blocks:
+        rel_path = rel_path.strip().lstrip("./\\")
+        target_path = os.path.normpath(os.path.join(workspace_root, rel_path))
+        
+        # Защита: проверяем, что файл пишется внутри workspace
+        if not target_path.startswith(os.path.normpath(workspace_root)):
+            output_log.append(f"[Ошибка безопасности]: Попытка записи за пределы workspace: {rel_path}")
+            continue
+            
+        try:
+            # Создаем родительские папки, если их нет (mkdir -p)
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            
+            # Записываем контент (убираем лишние начальные/конечные пустые строки)
+            with open(target_path, 'w', encoding='utf-8') as f:
+                f.write(content.strip('\n'))
+                
+            print(f"\n[Движок -> Успех]: Файл успешно записан: {rel_path}")
+            output_log.append(f"[Success]: File written successfully at '{rel_path}'")
+        except Exception as e:
+            output_log.append(f"[Error]: Failed to write file '{rel_path}': {e}")
+
+    # 2. Обрабатываем стандартный RUN: для терминала (если он есть)
+    if "RUN:" in response_text:
+        command = response_text.split("RUN:")[-1].strip().split("\n")[0].strip()
+        if command:
+            print(f"\n[Движок -> Терминал]: Запуск команды: {command}")
+            try:
+                result = subprocess.run(
+                    command, shell=True, cwd=workspace_root,
+                    capture_output=True, text=True, timeout=45,
+                    encoding='utf-8', errors='ignore'
+                )
+                terminal_out = f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}".strip()
+                output_log.append(f"[Terminal Execution Result]:\n{terminal_out if terminal_out else '[Executed with no output]'}")
+            except Exception as e:
+                output_log.append(f"[Terminal Error]: {e}")
+
+    # Возвращаем накопленный результат работы для памяти модели
+    return "\n".join(output_log) if output_log else None
