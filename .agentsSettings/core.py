@@ -1,5 +1,6 @@
 import os
 import subprocess
+import re
 
 # Глобальное описание инструментов (схемы для Ollama API)
 OLLAMA_TOOLS = [

@@ -9,6 +9,7 @@ import core
 import skill_analyzer
 import skill_planner
 import skill_coder
+import re
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL_PLANNER = "llama3.2:3b"
